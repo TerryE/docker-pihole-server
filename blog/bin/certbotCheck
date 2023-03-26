@@ -1,0 +1,17 @@
+#! /bin/bash
+
+# Unless interactive add up to 15min random delay to be nice to the certbot service
+
+[ -t 0 ] ||  sleep  $(($RANDOM/40)).3
+
+cd $HOME/stack
+#The cerbot script in the nginx container does the actual renewal if needed
+
+docker exec nginx certbot.sh
+
+# If the cert is less than a day old then it has just been updated, so copy to HA
+
+source $(dirname $(dirname $(realpath $0)))/.env
+
+[ -n "$(sudo find $CERTDIR/fullchain.pem -mtime -2)" ] && \
+  sudo scp -p  $CERTDIR/{cert,chain,fullchain,privkey}.pem $REMOTE_CERTHOST:/ssl

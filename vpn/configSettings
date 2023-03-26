@@ -1,0 +1,15 @@
+APP="OpenVPN Server"
+function HOOK_map {
+    cat <<END | sed 's/^ *//' >> /etc/pve/lxc/.conf
+        lxc.cgroup.devices.allow: c 10:200 rwm
+        lxc.mount.entry: /dev/net dev/net none bind,create=dir
+END
+    }
+
+# vpn/.env  includes the following private parameters
+OPT_CTID=
+OPT_MACADDR=
+VPN_UID=
+VPN_USER=
+VPN_PASSWORD=
+
