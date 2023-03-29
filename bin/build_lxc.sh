@@ -112,7 +112,7 @@ function fixupVariableDefaults {
     # Some variables need there values fixed up
     [[ $VERBOSE = "1" ]] && VERBOSE="yes"
     [[ $VERBOSE = "yes" ]] && set -x
-    [[ -z $CTID ]] && CTID=$(pvesh get /cluster/nextid)
+    [[ -z $CTID ]] && CTID=$(sudo pvesh get /cluster/nextid)
     [[ -z $HOST ]] && HOST=$ROOT_DIR
     [[ $FEATURES =~ keyctl= || $PRIVTYPE = "0" ]]  || FEATURES="${FEATURES},keyctl=1"
 }
@@ -122,10 +122,12 @@ function map_UID {
     local -i ctid=${1:-$CTID} id=${2:-1000} base=${3:-100000}
     local -i idm1=$((id-1)) id_1=$((id+1)) base_id_1=$((base+id+1))
     local -i baseres=$((0x10000-id_1))
-    grep -q ":$id:" /etc/subuid  || echo "root:$id:1" >> /etc/subuid
-    grep -q ":$id:" /etc/subgid  || echo "root:$id:1" >> /etc/subuid
+    grep -q ":$id:" /etc/subuid  ||
+        echo "root:$id:1" | sudo tee -a /etc/subuid > /dev/null
+    grep -q ":$id:" /etc/subgid  ||
+        echo "root:$id:1" | sudo tee -a /etc/subuid > /dev/null
 
-    cat << END | sed 's/^ *//' >> /etc/pve/lxc/$CTID.conf
+    cat << END | sed 's/^ *//' | sudo tee -a /etc/pve/lxc/$CTID.conf > /dev/null
         lxc.idmap = u 0 $base $id
         lxc.idmap = u $id $id 1
         lxc.idmap = u $id_1 $base_id_1 $baseres
@@ -138,21 +140,25 @@ END
 
 function create_LXC {
     # Create the LXK.  Tteck (tteckster) already has a script for this, so I use it to do the
-    # work.  (See source for its MIT License).  This tahes its parameters as exported variables.
+    # work.  (See source for its MIT License).
+    local tteck_ver="tteck/Proxmox/44c614f65dc849b4331920926b1f15e55b1de2bb/ct"
+
     local -i ctid=${1:-$CTID}
-    local datadir=$(readlink -f $DATA_PATH/$ROOT_DIR)
+
+    # If the --rebuild flag is set, then destry the previous instance of the LXR
+    (( REBUILD == 1 )) && [[ -f "/etc/pve/lxc/$ctid.conf" ]] && (
+        msg_info "Remove the old container version"
+        sudo pct destroy $ctid --force 1
+        )
+    local TEMP_DIR=$(mktemp -d); pushd $TEMP_DIR >/dev/null
+
+    msg_info "Createthe new LXC Container"
  
-# The following exported variables are parameters tp Tteck's createLXC script to screate the
+# The following exported variables are parameters to Tteck's createLXC script to screate the
 # blank template LXC, just 'cos that's the way he does it. Not worth reinventing the wheel :-)
-    export VERBOSE=$VERBOSE
-    export CTID=$CTID
-    export PCT_HOST=$HOST
-    export PCT_OSTYPE=$OSTYPE
-    export PCT_OSVERSION=$OSVERSION
-    export PCT_DISK_SIZE=$DISK
-    export PCT_OPTIONS=$(echo "
+    local PCT_OPTIONS=$(echo "
         --hostname $HOST
-    --features $FEATURES
+        --features $FEATURES
         --net0 name=eth0,bridge=${BRIDGE},ip=${NET}\
                 ${MACADDR:+,hwaddr=$MACADDR}${GATEWAY:+,gw=$GATEWAY}\
                 ${VLAN:+,tag=$VLAN}${MTU:+,mtu=$MTU}
@@ -162,27 +168,29 @@ function create_LXC {
         --unprivileged $PRIVTYPE
         ${DOMAIN:+--searchdomain $DOMAIN}
         ${DNNS:+--nameserver $DNS}
-        ${PASSWORD:+--password \"$PASSWORD\"}
+        ${PASSWORD:+--password $PASSWORD}
         ${SSHKEYS:+--ssh-public-keys $SSHKEYS}" |
-            sed 's/^  *//; /^$/d; s/  *,/,/' )
+            xargs | sed 's/  *,/,/' )
 
-    local TEMP_DIR=$(mktemp -d); pushd $TEMP_DIR >/dev/null
+    wget -qLO - https://raw.githubusercontent.com/$tteck_ver/create_lxc.sh |
+      sudo VERBOSE=$VERBOSE \
+        CTID=$CTID \
+        PCT_HOST=$HOST \
+        PCT_OSTYPE=$OSTYPE \
+        PCT_OSVERSION=$OSVERSION \
+        PCT_DISK_SIZE=$DISK \
+        PCT_OPTIONS="${PCT_OPTIONS}" \
+        bash -
 
-    # If the --rebuild flag is set, then destry the previous instance of the LXR
-    (( REBUILD == 1 )) && [[ -f "/etc/pve/lxc/$ctid.conf" ]] &&
-        msg_info "Remove the old container version"
-        pct destroy $ctid --force 1
+    # If the data directory exists then add it to options at mp3
+    [[ -d $DATA_PATH/$ROOT_DIR ]] &&
+        local datadir=$(readlink -f $DATA_PATH/$ROOT_DIR)
 
-    # If the data directory exists then add it at mp3
-    [[ -d  $datadir ]] && mp3="--mp3 $datadir,mp=/usr/local/data,backup=0"
-    msg_info "Createthe new LXC Container"
-    $SCRIPT_PATH/create_lxc.sh || exit
-env | grep -v "^LS_"
-    pct set $ctid \
-            --description "# ${PCT_OSTYPE} ${PCT_OSVERSION} ${APP} LXC" \
-            --mp1 $ROOT_PATH/bin,mp=/usr/local/sbin,ro=1,backup=0 \
-            --mp2 $ROOT_PATH/conf,mp=/usr/local/conf,ro=1,backup=0 \
-         ${mp3:-}
+    sudo pct set $ctid \
+        --description "# ${OSTYPE} ${OSVERSION} ${APP} LXC" \
+        --mp1 $ROOT_PATH/bin,mp=/usr/local/sbin,ro=1,backup=0 \
+        --mp2 $ROOT_PATH/conf,mp=/usr/local/conf,ro=1,backup=0 \
+         ${datadir:+--mp3 $datadir,mp=/usr/local/data,backup=0}
 
     popd >/dev/null
     [[ -n "$TEMP_DIR" ]] && rm -R $TEMP_DIR
@@ -192,37 +200,40 @@ env | grep -v "^LS_"
 function start_LXC {
     local -i ctid=${1:-$CTID}
     msg_info "First start of the LXC Container"
-    pct start $CTID
+    sudo pct start $CTID
 }
 
 function bootstrap_LXC {
     local -i ctid=${1:-$CTID}
     msg_info "Initial Provision of the LXC Container"
     [[ -e $ROOT_PATH/.env ]] &&
-        pct push $ctid $ROOT_PATH/.env  /tmp/.env --user 0 --perms 755
-    pct exec  $ctid /usr/local/sbin/target-bootstrap.sh
-    pct reboot $ctid
+        sudo pct push $ctid $ROOT_PATH/.env  /tmp/.env --user 0 --perms 755
+    sudo pct exec  $ctid /usr/local/sbin/target-bootstrap.sh
+    sudo pct reboot $ctid
     sleep 5
-    local IP=$(pct exec $ctid ip a s dev eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
-    msg_info "$APP Build for $PCT_HOST($ctid),IP=$IP completed successfully "
+    local IP=$(sudo pct exec $ctid ip a s dev eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
+    msg_info "$APP Build for $HOST($ctid),IP=$IP completed successfully "
     return 0
 }
 
 # =================================== Effective Main Entry # ===================================
 
 # Set up execution context
+
 setupErrorHandling
 
-[[ "$EUID" -eq 0 ]] || msg_error "Run as root"
+groups | grep -q sudo || msg_error "Run from sudo account"
 
 setRoot            "$1"
+shift
+
 setOptionDefaults
 
 # Load the contain's .env and configSetting and do any Option overrides.  This will
 # also establish any callback hooks specific to this container.
 
 setEnvOptOverrides
-setCommandLinevOptOverrides
+setCommandLinevOptOverrides $*
 fixupVariableDefaults
 
 create_LXC    $CTID

@@ -1,10 +1,9 @@
 APP="vsFTPd Server"
 
 # vsftp/.env  includes the following private parameters
-OPT_CTID=
-OPT_MACADDR=
-USER=
-FTP_USER=
-FTP_PASSWORD=
-FTP_UID=
-
+# OPT_CTID=
+# OPT_MACADDR=
+# USER=
+# FTP_USER=
+# FTP_PASSWORD=
+# FTP_UID=
