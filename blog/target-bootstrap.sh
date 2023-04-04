@@ -1,12 +1,12 @@
-    #! /bin/ash
+#! /bin/bash
 
 # In-target initial provisioning of the Alpine blog LEMP stack LXC
 
 cd /usr/local
-set -vx
+
 # Alpine compontents needed in the LAMP webserver container
 
-CORE='bash nginx certbot ghostscript imagemagick logrotate sudo redis tar dropbear'
+CORE='nginx certbot ghostscript imagemagick logrotate sudo redis tar dropbear'
 DB='mariadb mariadb-client'
 GOODIES='iputils nmap procps tree util-linux xz'
 PHP_MODS='cli fpm bcmath curl ctype dom exif fileinfo ftp gd iconv intl
@@ -16,12 +16,18 @@ PHP=$( for m in $PHP_MODS; do echo -n " php81-${m}"; done )
 
 apk add --no-cache ${CORE} ${PHP} ${DB} ${GOODIES}
 
+# The preferred method of access is PCT enter or certificated SSH so the
+# password is normally randomised, except for debugging
+
+[[ -v $BLOG_PASSWORD && -n $BLOG_PASSWORD ]] || \
+    BLOG_RNDPASS=$(head -c 64  </dev/urandom | tr -cd 'A-Za-z0-9#%&()*+,-.:<=>?@^_~')
+
 # Add $BLOG_USER and sudo enable.  Clone SSH publicc keys from root
 # This account will be mapped to the same UID:GID on the host.
 
 addgroup -g $BLOG_UID $BLOG_USER
 echo -e "${BLOG_PASSWORD}\n${BLOG_PASSWORD}" | \
-  adduser -h /home/$BLOG_USER -g '' -s /bin/bash -G $BLOG_USER -u $BLOG_UID $BLOG_USER
+    adduser -h /home/$BLOG_USER -g '' -s /bin/bash -G $BLOG_USER -u $BLOG_UID $BLOG_USER
 
 echo -e "$BLOG_USER ALL=(ALL:ALL) NOPASSWD: ALL\n" > /etc/sudoers
 USER_SSH="/home/$BLOG_USER/.ssh"
@@ -39,6 +45,10 @@ sed -i '/^root:/s!/ash!/bash!' /etc/passwd
 rm -Rf /var/lib/mysql
 ln -s /usr/local/data/mysql /var/lib/mysql
 ln -s /usr/local/data/www /var/www/blog
+
+# Unpack the /etc/letsencrypt folder
+
+tar -C /etc -xzf /usr/local/data/letsencrypt/letsencrypt.tgz
 
 # Tweak nginx config
 
