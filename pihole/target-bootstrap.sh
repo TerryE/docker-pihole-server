@@ -4,16 +4,17 @@
 # Note that Pihole isn't yet supported on Alpine, hence the use of Debian
 
 cd /usr/local
-source /tmp/.env  # Pick up private environment
 
-# This script rebuild the local DNS server, so we need to use a public DNS here
+# This script rebuilds the local DNS server, so we need to use a public DNS here
 
-sed '3s/ .*/ 8.8.8.8/' /etc/resolv.conf
+sed -i '3s/ .*/ 8.8.8.8/; 4d' /etc/resolv.conf
 
-# Need to fix up locale so that the Pihole Perl scripts don't throw errors
+# Fix up locale so that the Pihole Perl scripts don't throw errors
 
 sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
 locale-gen
+
+# Install Unbound and Sudo
 
 apt-get update; apt-get install -y unbound sudo
 
@@ -23,23 +24,24 @@ apt-get update; apt-get install -y unbound sudo
 addgroup -gid $PIHOLE_GID $PIHOLE_USER
 adduser --shell /bin/bash --uid $PIHOLE_UID --gid $PIHOLE_GID \
         --gecos '' --disabled-password  $PIHOLE_USER
-
 echo -e "$PIHOLE_USER ALL=(ALL:ALL) NOPASSWD: ALL\n" >> /etc/sudoers
-USER_SSH="/home/$PIHOLE_USER/.ssh"
 
+# Inherit SSH authorised keys from the Root account
+
+USER_SSH="/home/$PIHOLE_USER/.ssh"
 mkdir -m 700 $USER_SSH
 cp -p /root/.ssh/authorized_keys $USER_SSH
 chown $PIHOLE_USER:$PIHOLE_USER -R $USER_SSH
 
-# Configure and start up unbound
+# Configure and start up Unbound
 
 mv /etc/unbound/unbound.conf.d/{,05-}root-auto-trust-anchor-file.conf
 cp /usr/local/conf/unbound.conf.d/*.conf /etc/unbound/unbound.conf.d
 cp /usr/local/conf/unbound.conf.d/root.{hints,key} /etc/unbound/
 service unbound restart
 
-# Install Pihole.  At this stage the setupVars need to be sufficient
-# to allow the install script to do a full S/W install.
+# Now install Pihole.  At this stage the setupVars need to be
+# sufficient to allow the install script to do a full S/W install.
 
 mkdir -p /etc/pihole; echo '
 BLOCKING_ENABLED=true
@@ -51,23 +53,24 @@ DNSMASQ_LISTENING=local
 INSTALL_WEB_INTERFACE=true
 INSTALL_WEB_SERVER=true
 LIGHTTPD_ENABLED=true
-PIHOLE_DNS_1='127.0.0.1#5053'
-PIHOLE_DNS_2='127.0.0.1#5053'
+PIHOLE_DNS_1="127.0.0.1#5053"
+PIHOLE_DNS_2="127.0.0.1#5053"
 PIHOLE_INTERFACE=''
 QUERY_LOGGING=true
 TEMPERATUREUNIT="C"
 WEBPASSWORD=""' > /etc/pihole/setupVars.conf
 
+# Download the pihole installation script and do unattended install
+
 wget -O /tmp/pihole-install.sh https://install.pi-hole.net
 chmod +x /tmp/pihole-install.sh
 bash -lc "/tmp/pihole-install.sh --unattended"
 
-# Now stop pihole to reconnect to persistent version, and restart
+# Stop pihole to reconnect to persistent version, and restart
 
 bash -lc "pihole disable"
 pkill pihole-FTL
 rm -R /etc/pihole
-
 
 # Configure and start up pihole.  Note that /etc/pihole is preserved
 # except setupVars.conf is reinitialised

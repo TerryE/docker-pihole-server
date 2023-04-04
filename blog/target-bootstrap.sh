@@ -1,22 +1,20 @@
-#! /bin/ash
+    #! /bin/ash
 
 # In-target initial provisioning of the Alpine blog LEMP stack LXC
 
 cd /usr/local
-
+set -vx
 # Alpine compontents needed in the LAMP webserver container
 
 CORE='bash nginx certbot ghostscript imagemagick logrotate sudo redis tar dropbear'
-PHP_M1='cli fpm bcmath curl ctype dom exif fileinfo ftp gd iconv intl mbstring'
-PHP_M2='mysqli openssl phar pecl-imagick posix redis session simplexml'
-PHP_M3='sodium tokenizer xml xmlreader xmlwriter opcache zip'
-PHP=$( for m in $PHP_M1 $PHP_M2 $PHP_M3; do echo -n " php81-${m}"; done )
 DB='mariadb mariadb-client'
 GOODIES='iputils nmap procps tree util-linux xz'
+PHP_MODS='cli fpm bcmath curl ctype dom exif fileinfo ftp gd iconv intl
+      mbstring mysqli openssl phar pecl-imagick posix redis session
+      simplexml sodium tokenizer xml xmlreader xmlwriter opcache zip'
+PHP=$( for m in $PHP_MODS; do echo -n " php81-${m}"; done )
 
 apk add --no-cache ${CORE} ${PHP} ${DB} ${GOODIES}
-
-source /tmp/.env  # Pick up private environment
 
 # Add $BLOG_USER and sudo enable.  Clone SSH publicc keys from root
 # This account will be mapped to the same UID:GID on the host.
@@ -48,8 +46,7 @@ sed -i "/^user /s/nginx/$BLOG_USER/;
         /^worker_processes /s/auto/3/
         /^ssl_session_cache /s/2m/1m" /etc/nginx/nginx.conf
 
-FROM=/usr/local/conf/nginx.d/
-cp $FROM/blog-https.conf $FROM/acme-challenge.conf /etc/nginx/http.d
+cp /usr/local/conf/nginx.d/{blog-https,acme-challenge}.conf /etc/nginx/http.d
 
 # Tweak PHP81 config
 
@@ -62,10 +59,10 @@ sed -i "/^ignore_repeated_errors/s/=.*/= On/
         /opcache.memory_consumption/s/=.*/= 64/
         /opcache.max_accelerated_files/s/=.*/= 2000/" /etc/php81/php.ini
 
-  sed -i "/^user /s/=.*/= $BLOG_USER/
-          /^group /s/=.*/= $BLOG_USER/
-          /^listen /s/=.*/= 127.0.0.1:9000/
-          /^pm.max_children /s/=.*/= 5/"  /etc/php81/php-fpm.d/www.conf
+sed -i "/^user /s/=.*/= $BLOG_USER/
+        /^group /s/=.*/= $BLOG_USER/
+        /^listen /s/=.*/= 127.0.0.1:9000/
+        /^pm.max_children /s/=.*/= 5/"  /etc/php81/php-fpm.d/www.conf
 
 # Tweak redis config
 

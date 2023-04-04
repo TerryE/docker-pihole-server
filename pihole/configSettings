@@ -3,7 +3,7 @@ APP="Debian Pihole+unbound server"
 OPT_DISK=1
 OPT_RAM=256
 OPT_OSTYPE="debian"
-OPT_OS_VERSION="11"
+OPT_OSVERSION="11"
 
 # pihole/.env  includes the following private parameters
 # OPT_CTID=
@@ -12,4 +12,4 @@ OPT_OS_VERSION="11"
 # PIHOLE_PASSWORD=
 # PIHOLE_UID=
 # PIHOLE_GID=
-# PIHOLE_PWD= 
+# PIHOLE_PWD=

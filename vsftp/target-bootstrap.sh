@@ -9,8 +9,6 @@ CORE='bash logrotate vsftpd strace mandoc vsftpd-doc'
 GOODIES='iputils nmap procps tar tree util-linux xz'
 apk add --no-cache ${CORE}  ${GOODIES}
 
-source /tmp/.env
-
 # Add 1000:1000 as $FTP_USER.  This will be mapped to the same UID:GID on the host.
 addgroup -g $FTP_UID $FTP_USER
 echo -e "${FTP_PASSWORD}\n${FTP_PASSWORD}" | \
