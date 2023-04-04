@@ -75,7 +75,7 @@ function setOptionDefaults {
     ONBOOT=1
     OSTYPE="alpine"
     OSVERSION="3.17"
-    PASSWORD="$(head -c 128 /dev/urandom| tr -cd "[:alnum:]#%&()*+,-.:<=")"
+    PASSWORD="$(head -c 128 /dev/urandom| tr -cd "[:alnum:]%&()*+,-.:<=")"
     PRIVTYPE=1
     RAM=128
     SSHKEYS=$(realpath ~/.ssh/authorized_keys)
@@ -178,16 +178,14 @@ function get_template {
     echo "${TEMPLATESTORE}:vztmpl/$template"
 }
 
+function add_mp {
+    local dir=$(readlink -f $1) tgt=$2 opts=$3
+    [[ -d $1 ]] || return 0
+    mps="${mps} --mp$((mpi=mpi+1)) ${dir},mp=${tgt},${opts}"
+}
+
 function create_LXC {
     local -i ctid=${1:-$CTID}
-
-    (( MPI=-1 ))
-    
-    function add_mp {
-        local dir=$(readlink -f $1) tgt=$2 opts=$3
-        [[ -d $1 ]] && echo "--mp$(( MPI=MPI+1 )) ${dir},mp=${tgt},${opts}"
-        return 0
-    }
 
     # If the --rebuild flag is set, then destroy the previous instance of the LXR
     (( REBUILD == 1 )) && [[ -f "/etc/pve/lxc/$ctid.conf" ]] && (
@@ -204,6 +202,12 @@ function create_LXC {
                 "${GATEWAY:+,gw=$GATEWAY}" \
                 "${VLAN:+,tag=$VLAN}" \
                 "${MTU:+,mtu=$MTU}"  | sed 's/  *,/,/' )
+            
+    mps=""; let mpi=-1
+    add_mp $ROOT_PATH/bin       /usr/local/sbin "ro=1,backup=0"
+    add_mp $ROOT_PATH/conf      /usr/local/conf "ro=1,backup=0"
+    add_mp $DATA_PATH/$ROOT_DIR /usr/local/data "backup=0"
+echo $mps
 
     sudo pct create $ctid $(get_template ${OSTYPE}-${OSVERSION:-}) \
         --description "# ${OSTYPE} ${OSVERSION} ${APP} LXC" \
@@ -217,15 +221,13 @@ function create_LXC {
         --unprivileged $PRIVTYPE \
         --ostype $OSTYPE \
         --net0 $net0 \
-        $(add_mp $ROOT_PATH/bin /usr/local/sbin "ro=1,backup=0") \
-        $(add_mp $ROOT_PATH/conf /usr/local/conf "ro=1,backup=0") \
-        $(add_mp $DATA_PATH/$ROOT_DIR /usr/local/data "backup=0") \
+        ${mps} \
         ${DOMAIN:+--searchdomain $DOMAIN} \
         ${DNNS:+--nameserver $DNS} \
-        ${PASSWORD:+--password $PASSWORD} \
+        ${PASSWORD:+--password "$PASSWORD"} \
         ${SSHKEYS:+--ssh-public-keys $SSHKEYS}
-    unset MPI
 
+    unset mps mpi
     msg_ok "LXC Container $ctid was successfully created."
 }
 
@@ -240,10 +242,13 @@ function bootstrap_LXC {
     msg_info "Initial Provision of the LXC Container"
     
     # Alpine doesn't have bash installed by default, so install first so that .env,
-    # configSettings and target-bootstrap.sh can always be executed using bash.
+    # configSettings and target-bootstrap.sh can always be executed using bash,
+    # and set the root default login to bash.
     [[ $OSTYPE = "alpine" ]] &&
-        sudo pct exec $ctid -- /sbin/apk add --no-cache bash
-        
+        sudo pct exec $ctid -- /bin/ash - <<< "
+            /sbin/apk add --no-cache bash
+            /bin/sed -i '/^root:/s!/ash!/bash!' /etc/passwd"
+            
     ( cd $ROOT_PATH; cat $(readlink -f .env) configSettings target-bootstrap.sh ) |
         sudo pct exec $ctid -- /bin/bash -
 
