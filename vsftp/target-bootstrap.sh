@@ -1,21 +1,18 @@
-#! /bin/ash
+#! /bin/bash
 
 # In-target initial provisioning of the Alpine vsFTPd LXC
 
 cd /usr/local
 
 # Alpine compontents needed in the FTP container
-CORE='bash logrotate vsftpd strace mandoc vsftpd-doc'
-GOODIES='iputils nmap procps tar tree util-linux xz'
+CORE='logrotate vsftpd'
+GOODIES='iputils nmap procps tar tree util-linux xz strace mandoc vsftpd-doc'
 apk add --no-cache ${CORE}  ${GOODIES}
 
 # Add 1000:1000 as $FTP_USER.  This will be mapped to the same UID:GID on the host.
 addgroup -g $FTP_UID $FTP_USER
 echo -e "${FTP_PASSWORD}\n${FTP_PASSWORD}" | \
   adduser -h /ftp -g '' -s /bin/bash -G $FTP_USER -H -u $FTP_UID $FTP_USER
-
-# Change root shell to bash
-sed -i '/^root:/s!/ash!/bash!' /etc/passwd
 
 # Make sure the TLD /ftp hierarchy exists
 ln -s /usr/local/data /ftp

@@ -7,12 +7,12 @@ cd /usr/local
 # Alpine compontents needed in the LAMP webserver container
 
 CORE='nginx certbot ghostscript imagemagick logrotate sudo redis tar dropbear'
-DB='mariadb mariadb-client'
-GOODIES='iputils nmap procps tree util-linux xz'
 PHP_MODS='cli fpm bcmath curl ctype dom exif fileinfo ftp gd iconv intl
       mbstring mysqli openssl phar pecl-imagick posix redis session
       simplexml sodium tokenizer xml xmlreader xmlwriter opcache zip'
 PHP=$( for m in $PHP_MODS; do echo -n " php81-${m}"; done )
+DB='mariadb mariadb-client'
+GOODIES='iputils nmap procps tree util-linux xz'
 
 apk add --no-cache ${CORE} ${PHP} ${DB} ${GOODIES}
 

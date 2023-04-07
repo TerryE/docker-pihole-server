@@ -139,8 +139,8 @@ function map_UID {
     id_1=id+1
     base_id_1=base+id+1
     baseres=0x10000-id-1
-    grep -q ":$id:" /etc/subuid  || sudo sed -i "\$aroot:$id:1" /etc/subgid
-    grep -q ":$id:" /etc/subgid  || sudo sed -i "\$aroot:$id:1" /etc/subgid
+    grep -q ":$id:" /etc/subuid  || sudo sed -i "\$a root:$id:1" /etc/subgid
+    grep -q ":$id:" /etc/subgid  || sudo sed -i "\$a root:$id:1" /etc/subgid
     sudo sed -i -f - /etc/pve/lxc/$CTID.conf <<END
         \$a lxc.idmap = u 0 $base $id
         \$a lxc.idmap = u $id $id 1
@@ -178,12 +178,6 @@ function get_template {
     echo "${TEMPLATESTORE}:vztmpl/$template"
 }
 
-function add_mp {
-    local dir=$(readlink -f $1) tgt=$2 opts=$3
-    [[ -d $1 ]] || return 0
-    mps="${mps} --mp$((mpi=mpi+1)) ${dir},mp=${tgt},${opts}"
-}
-
 function create_LXC {
     local -i ctid=${1:-$CTID}
 
@@ -193,21 +187,27 @@ function create_LXC {
         sudo pct destroy $ctid --force 1
         )
 
-    # The following options come straight out of the 'pct create' man page
-            
     msg_info "Creating the LXC Container"
     
+    # Net0 is complex so build up first
+
     local net0=$(echo "name=eth0,bridge=${BRIDGE},ip=${NET}" \
                 "${MACADDR:+,hwaddr=$MACADDR}" \
                 "${GATEWAY:+,gw=$GATEWAY}" \
                 "${VLAN:+,tag=$VLAN}" \
                 "${MTU:+,mtu=$MTU}"  | sed 's/  *,/,/' )
-            
-    mps=""; let mpi=-1
-    add_mp $ROOT_PATH/bin       /usr/local/sbin "ro=1,backup=0"
-    add_mp $ROOT_PATH/conf      /usr/local/conf "ro=1,backup=0"
-    add_mp $DATA_PATH/$ROOT_DIR /usr/local/data "backup=0"
-echo $mps
+    
+    # Add mount points that exist
+
+    local mpb="$ROOT_PATH/bin,mp=/usr/local/sbin,ro=1,backup=0"
+    local mpc="$ROOT_PATH/conf,mp=/usr/local/conf,ro=1,backup=0"
+    local mpd="$(readlink -f $DATA_PATH/$ROOT_DIR),mp=/usr/local/sbin,backup=0"
+
+    [[ -d  $ROOT_PATH/bin ]]       && mps+=( "--mp${#mps[@]} $mpb")
+    [[ -d  $ROOT_PATH/conf ]]      && mps+=( "--mp${#mps[@]} $mpc")
+    [[ -d  $DATA_PATH/$ROOT_DIR ]] && mps+=( "--mp${#mps[@]} $mpd")
+
+    # Now create the LXC with options as per the 'pct create' man page
 
     sudo pct create $ctid $(get_template ${OSTYPE}-${OSVERSION:-}) \
         --description "# ${OSTYPE} ${OSVERSION} ${APP} LXC" \
@@ -221,13 +221,12 @@ echo $mps
         --unprivileged $PRIVTYPE \
         --ostype $OSTYPE \
         --net0 $net0 \
-        ${mps} \
+        ${mps[@]} \
         ${DOMAIN:+--searchdomain $DOMAIN} \
         ${DNNS:+--nameserver $DNS} \
         ${PASSWORD:+--password "$PASSWORD"} \
         ${SSHKEYS:+--ssh-public-keys $SSHKEYS}
 
-    unset mps mpi
     msg_ok "LXC Container $ctid was successfully created."
 }
 
@@ -244,6 +243,7 @@ function bootstrap_LXC {
     # Alpine doesn't have bash installed by default, so install first so that .env,
     # configSettings and target-bootstrap.sh can always be executed using bash,
     # and set the root default login to bash.
+
     [[ $OSTYPE = "alpine" ]] &&
         sudo pct exec $ctid -- /bin/ash - <<< "
             /sbin/apk add --no-cache bash
