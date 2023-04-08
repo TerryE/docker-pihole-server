@@ -1,9 +1,11 @@
 APP="OpenVPN Server"
-function HOOK_map {
-    cat <<END | sed 's/^ *//' >> /etc/pve/lxc/.conf
-        lxc.cgroup.devices.allow: c 10:200 rwm
-        lxc.mount.entry: /dev/net dev/net none bind,create=dir
-END
+OPT_MAP=0
+function HOOK_customMapping {
+set -vx
+     echo Map hook called
+     sudo sed -i  '$a lxc.cgroup.devices.allow: c 10:200 rwm
+                   $a lxc.mount.entry: /dev/net dev/net none bind,create=dir' \
+              /etc/pve/lxc/$CTID.conf
 }
 
 # vpn/.env  includes the following private parameters

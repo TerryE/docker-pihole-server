@@ -22,6 +22,8 @@
 # id used instead.
 
 function setupErrorHandling {
+    # The -Ee options are really useful for trapping errors, but the downside it that the script 
+    # must explicitly handle cases where a 1 status is valid, e.g. by adding a "|| :" pipe.  
     set -Eeuo pipefail
     trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
     function error_handler {
@@ -114,11 +116,9 @@ function setCommandLinevOptOverrides {
 function runHhook {
     # the configSettings script can define a number of callback hooks which can be invoked
     # during this build process, E.g. "runHook someHook fred" will run the function
-    # HOOK_someHook if it has been defined in configSettings  with the parameter fred.  The
-    # bash syntax for manipulating functions by references is arcaine, but it does the job.
-    local v=$1; shift;
-    (local -F HOOK_$v) 2>&1 >/dev/null && (HOOK_$v $*);
-    return 0
+    # HOOK_someHook if it has been defined in configSettings with parameter fred.
+    local v=HOOK_$1; local -F $v &>/dev/null || return 0; 
+    shift; $v $* 
 }
 
 function fixupVariableDefaults {
@@ -149,7 +149,6 @@ function map_UID {
         \$a lxc.idmap = g $id $id 1
         \$a lxc.idmap = g $id_1 $base_id_1 $baseres
 END
-    runHhook mapping
 }
 
 function get_template {
@@ -201,7 +200,7 @@ function create_LXC {
 
     local mpb="$ROOT_PATH/bin,mp=/usr/local/sbin,ro=1,backup=0"
     local mpc="$ROOT_PATH/conf,mp=/usr/local/conf,ro=1,backup=0"
-    local mpd="$(readlink -f $DATA_PATH/$ROOT_DIR),mp=/usr/local/sbin,backup=0"
+    local mpd="$(readlink -f $DATA_PATH/$ROOT_DIR),mp=/usr/local/data,backup=0"
 
     [[ -d  $ROOT_PATH/bin ]]       && mps+=( "--mp${#mps[@]} $mpb")
     [[ -d  $ROOT_PATH/conf ]]      && mps+=( "--mp${#mps[@]} $mpc")
@@ -249,7 +248,7 @@ function bootstrap_LXC {
             /sbin/apk add --no-cache bash
             /bin/sed -i '/^root:/s!/ash!/bash!' /etc/passwd"
             
-    ( cd $ROOT_PATH; cat $(readlink -f .env) configSettings target-bootstrap.sh ) |
+    ( cd $ROOT_PATH; cat .env configSettings target-bootstrap.sh ) |
         sudo pct exec $ctid -- /bin/bash -
 
     sudo pct reboot $ctid
@@ -282,7 +281,8 @@ setCommandLinevOptOverrides $*
 fixupVariableDefaults
 
 create_LXC    $CTID
-map_UID       $CTID
+(( $MAP == 1 )) && map_UID $CTID
+runHhook      customMapping
 start_LXC     $CTID
 bootstrap_LXC $CTID
 
