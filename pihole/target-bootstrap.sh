@@ -40,31 +40,50 @@ cp /usr/local/conf/unbound.conf.d/*.conf /etc/unbound/unbound.conf.d
 cp /usr/local/conf/unbound.conf.d/root.{hints,key} /etc/unbound/
 service unbound restart
 
+function createSetupVars {
+    IP=''
+    while [[ -z $IP ]]
+        do sleep 1; IP=$(ip a s dev eth0 | awk '/inet /{print $2}'); done
+    SUBNET=$( sed 's/\.[0-9]*\/[0-9]*//' <<< "$IP" )
+    
+    echo "
+    PIHOLE_INTERFACE=eth0
+    DNSMASQ_LISTENING=single
+    IPV4_ADDRESS=
+    QUERY_LOGGING=true
+    DNSSEC=true
+    BLOCKING_ENABLED=true
+    API_QUERY_LOG_SHOW=all
+    API_PRIVACY_MODE=false
+    TEMPERATUREUNIT=C
+    DNS_FQDN_REQUIRED=true
+    DNS_BOGUS_PRIV=true
+    PIHOLE_DNS_1=127.0.0.1#5053
+    PIHOLE_DNS_2=127.0.0.1#5053
+    REV_SERVER=true
+    REV_SERVER_CIDR=${SUBNET}.0/24
+    REV_SERVER_TARGET=${SUBNET}.1
+    REV_SERVER_DOMAIN=home
+    WEBUIBOXEDLAYOUT=traditional
+    INSTALL_WEB_SERVER=true
+    INSTALL_WEB_INTERFACE=true
+    LIGHTTPD_ENABLED=true
+    CACHE_SIZE=10000
+    WEBPASSWORD='${PIHOLE_PWD}'" | sed 's/^ *//'
+}
+
 # Now install Pihole.  At this stage the setupVars need to be
 # sufficient to allow the install script to do a full S/W install.
 
-mkdir -p /etc/pihole; echo '
-BLOCKING_ENABLED=true
-CACHE_SIZE=10000
-DHCP_ACTIVE=false
-DNS_BOGUS_PRIV=true
-DNS_FQDN_REQUIRED=true
-DNSMASQ_LISTENING=local
-INSTALL_WEB_INTERFACE=true
-INSTALL_WEB_SERVER=true
-LIGHTTPD_ENABLED=true
-PIHOLE_DNS_1="127.0.0.1#5053"
-PIHOLE_DNS_2="127.0.0.1#5053"
-PIHOLE_INTERFACE=''
-QUERY_LOGGING=true
-TEMPERATUREUNIT="C"
-WEBPASSWORD=""' > /etc/pihole/setupVars.conf
+for i in 1 2; do PIHOLE_PWD=$(echo -n $PIHOLE_PWD| sha256sum | cut -b 1-64); done
+
+mkdir -p /etc/pihole
+
+createSetupVars > /etc/pihole/setupVars.conf
 
 # Download the pihole installation script and do unattended install
 
-wget -O /tmp/pihole-install.sh https://install.pi-hole.net
-chmod +x /tmp/pihole-install.sh
-bash -lc "/tmp/pihole-install.sh --unattended"
+wget -qO - https://install.pi-hole.net | bash -ls - --unattended
 
 # Stop pihole to reconnect to persistent version, and restart
 
@@ -76,10 +95,6 @@ rm -R /etc/pihole
 # except setupVars.conf is reinitialised
 
 ln -s /usr/local/data /etc/pihole
-
-PIHOLE_PWD=$(echo -n $PIHOLE_PWD| sha256sum | cut -b 1-64)
-PIHOLE_PWD=$(echo -n $PIHOLE_PWD| sha256sum | cut -b 1-64)
-sed "/WEBPASSWORD=/s/=.*/=$PIHOLE_PWD/" \
-  /usr/local/conf/pihole/setupVars.conf > /etc/pihole/setupVars.conf
+createSetupVars > /etc/pihole/setupVars.conf
 
 bash -lc "pihole enable restartdns"

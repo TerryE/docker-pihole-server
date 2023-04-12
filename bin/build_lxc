@@ -22,8 +22,8 @@
 # id used instead.
 
 function setupErrorHandling {
-    # The -Ee options are really useful for trapping errors, but the downside it that the script 
-    # must explicitly handle cases where a 1 status is valid, e.g. by adding a "|| :" pipe.  
+    # The -Ee options are really useful for trapping errors, but the downside it that the script
+    # must explicitly handle cases where a 1 status is valid, e.g. by adding a "|| :" pipe.
     set -Eeuo pipefail
     trap 'error_handler $LINENO "$BASH_COMMAND"' ERR
     function error_handler {
@@ -93,6 +93,7 @@ function setEnvOptOverrides {
     for v in ${!OPT_*}; do
         local -n from=$v to=${v:4}
         [[ -v to ]] || msg_error "Unknown option $v"
+        [[ $to = $from ]] && continue
         msg_info "${v:4} changed from default ($to) to $from"
         to=$from
     done
@@ -108,6 +109,7 @@ function setCommandLinevOptOverrides {
         shift
         # if the value is omitted then it defaults to 1
         [[ $# -gt 0 && ${1:0:2} != "--" ]] && ( val=$1; shift )
+        [[ $var = $val ]] && continue
         var=$val
         msg_info "$name changed from $var to $val"
     done
@@ -117,8 +119,8 @@ function runHhook {
     # the configSettings script can define a number of callback hooks which can be invoked
     # during this build process, E.g. "runHook someHook fred" will run the function
     # HOOK_someHook if it has been defined in configSettings with parameter fred.
-    local v=HOOK_$1; local -F $v &>/dev/null || return 0; 
-    shift; $v $* 
+    local v=HOOK_$1; local -F $v &>/dev/null || return 0;
+    shift; $v $*
 }
 
 function fixupVariableDefaults {
