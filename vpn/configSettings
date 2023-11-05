@@ -9,7 +9,7 @@ function HOOK_customMapping {
 
 OPT_OSTYPE="debian"
 if [[ $OPT_OSTYPE != "alpine" ]]; then
-  OPT_DISK=1
+  OPT_DISK=2
   OPT_RAM=256
   OPT_OSVERSION="11"
 fi

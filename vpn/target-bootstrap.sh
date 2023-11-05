@@ -12,6 +12,8 @@ VPN_HOME="/home/$VPN_USER"
 
 if [[ -f /etc/debian_version ]] ;then   # Debian build
 
+    sed -i 's/deb.debian.org/ftp.uk.debian.org/g' /etc/apt/sources.list
+    apt-get update
     sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
     locale-gen
     apt-get install -y curl nmap sudo
@@ -39,7 +41,7 @@ cd $VPN_HOME
 last_backup=$(ls -l pivpnbackup | tail -1 | sed  's/.*:.. //') || exit
 
 service openvpn stop
-tar -C / -xzpf pivpnbackup/$last_backup
+#tar -C / -xzpf pivpnbackup/$last_backup
 
 # Remove Plaform setting as these are recreated if omitted
 sed -i '/PLAT=/d; /OSCN=/d' /etc/pivpn/openvpn/setupVars.conf
