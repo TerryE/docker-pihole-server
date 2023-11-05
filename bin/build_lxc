@@ -202,11 +202,11 @@ function create_LXC {
 
     local mpb="$ROOT_PATH/bin,mp=/usr/local/sbin,ro=1,backup=0"
     local mpc="$ROOT_PATH/conf,mp=/usr/local/conf,ro=1,backup=0"
-    local mpd="$(readlink -f $DATA_PATH/$ROOT_DIR),mp=/usr/local/data,backup=0"
+    local mpd="$(readlink -f $ROOT_PATH/data),mp=/usr/local/data,backup=0"
 
-    [[ -d  $ROOT_PATH/bin ]]       && mps+=( "--mp${#mps[@]} $mpb")
-    [[ -d  $ROOT_PATH/conf ]]      && mps+=( "--mp${#mps[@]} $mpc")
-    [[ -d  $DATA_PATH/$ROOT_DIR ]] && mps+=( "--mp${#mps[@]} $mpd")
+    [[ -d  $ROOT_PATH/bin ]]  && mps+=( "--mp${#mps[@]} $mpb")
+    [[ -d  $ROOT_PATH/conf ]] && mps+=( "--mp${#mps[@]} $mpc")
+    [[ -d  $ROOT_PATH/data ]] && mps+=( "--mp${#mps[@]} $mpd")
 
     # Now create the LXC with options as per the 'pct create' man page
 
