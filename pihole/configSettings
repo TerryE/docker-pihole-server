@@ -1,6 +1,6 @@
 # Configuration for the Debian Pihole build. Note that Pihole supports Debian, but not Alpine
 APP="Debian Pihole+unbound server"
-OPT_DISK=1
+OPT_DISK=2
 OPT_RAM=256
 OPT_OSTYPE="debian"
 OPT_OSVERSION="11"
