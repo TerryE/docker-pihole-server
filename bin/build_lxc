@@ -76,7 +76,7 @@ function setOptionDefaults {
     NET="dhcp"
     ONBOOT=1
     OSTYPE="alpine"
-    OSVERSION="3.17"
+    OSVERSION="3.18"
     PASSWORD="$(head -c 128 /dev/urandom| tr -cd "[:alnum:]%&()*+,-.:<=")"
     PRIVTYPE=1
     RAM=128
@@ -185,6 +185,7 @@ function create_LXC {
     # If the --rebuild flag is set, then destroy the previous instance of the LXR
     (( REBUILD == 1 )) && [[ -f "/etc/pve/lxc/$ctid.conf" ]] && (
         msg_info "Remove the old container version"
+        sudo pct shutdown $ctid  || echo "$ctid not running"
         sudo pct destroy $ctid --force 1
         )
 

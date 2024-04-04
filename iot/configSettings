@@ -1,0 +1,16 @@
+APP="LEMP stack running IoT stack"
+OPT_DISK=1
+OPT_RAM=384
+OPT_MAP=0
+# iot/.env includes the following private parameters
+# OPT_CTID=
+# OPT_MACADDR=
+# ROOTDOMAIN=
+# SUBDOMAINS=
+
+function HOOK_customMapping {
+     echo Map hook called
+      sudo sed -i '$a lxc.cgroup2.devices.allow: c 188:* rwm
+                   $a lxc.mount.entry: /dev/ttyUSB0 dev/ttyUSB0 none bind,optional,create=file' \
+              /etc/pve/lxc/$CTID.conf
+}

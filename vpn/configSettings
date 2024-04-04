@@ -8,11 +8,9 @@ function HOOK_customMapping {
 }
 
 OPT_OSTYPE="debian"
-if [[ $OPT_OSTYPE != "alpine" ]]; then
-  OPT_DISK=2
-  OPT_RAM=256
-  OPT_OSVERSION="11"
-fi
+OPT_DISK=2
+OPT_RAM=256
+OPT_OSVERSION="12"
 
 # vpn/.env  includes the following private parameters
 # OPT_CTID=

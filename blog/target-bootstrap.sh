@@ -48,7 +48,8 @@ ln -s /usr/local/data/www /var/www/blog
 
 # Unpack the /etc/letsencrypt folder
 
-tar -C /etc -xzf /usr/local/data/letsencrypt/letsencrypt.tgz
+rm -R /etc/letsencrypt
+ln -s /usr/local/data/letsencrypt /etc
 
 # Tweak nginx config
 
@@ -56,7 +57,7 @@ sed -i "/^user /s/nginx/$BLOG_USER/;
         /^worker_processes /s/auto/3/
         /^ssl_session_cache /s/2m/1m" /etc/nginx/nginx.conf
 
-cp /usr/local/conf/nginx.d/{blog-https,acme-challenge}.conf /etc/nginx/http.d
+cp -a /usr/local/conf/nginx.d/* /etc/nginx
 
 # Tweak PHP81 config
 

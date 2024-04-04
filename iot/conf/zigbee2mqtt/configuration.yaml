@@ -1,0 +1,31 @@
+permit_join: true
+
+mqtt:
+  base_topic: zigbee2mqtt
+  server:     mqtt://localhost:1883
+  user:       zigbee
+  password:   '!secret.yaml mqtt_password'
+
+serial:
+  port: /dev/ttyUSB0
+
+homeassistant: true
+
+advanced:
+  log_level: warn
+  channel: 11
+  pan_id: '!secret.yaml pan_id'
+  network_key: '!secret.yaml network_key'
+  log_output: 
+    - syslog
+  log_syslog:
+    path: /dev/log
+    protocol: unix
+
+frontend: 
+  port: 8081
+
+devices: devices.yaml
+
+groups: groups.yaml
+

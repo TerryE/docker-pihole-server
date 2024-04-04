@@ -1,0 +1,12 @@
+#! /sbin/openrc-run
+command="/usr/bin/node"
+command_args="--max_old_space_size=192 /usr/local/bin/node-red -p 80 -u /usr/local/data/nodered/ flows.json"
+command_user="nodered:nodered"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+name="nodered"
+description="Node_RED Server"
+depend() {
+    need net
+#   want mariadb
+}
