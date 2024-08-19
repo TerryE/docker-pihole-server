@@ -1,14 +1,8 @@
 APP="LEMP stack running blog.ellisons.org.uk Webserver"
 OPT_DISK=1
 OPT_RAM=256
-
-# blog/.env includes the following private parameters
-# OPT_CTID=
-# OPT_MACADDR=
-# BLOG_USER=
-# BLOG_PASSWORD=
-# BLOG_UID=
-# REMOTE_CERTHOST=
-# ROOTDOMAIN=
-# SUBDOMAINS=
-# CERTDIR=
+OPT_MAP=1
+# blog/.env should set the following private parameters
+#   OPT_CTID, OPT_MACADDR
+#   BLOG_USER, BLOG_PASSWORD(opt), BLOG_UID
+#   REMOTE_CERTHOST, ROOTDOMAIN, SUBDOMAINS, CERTDIR

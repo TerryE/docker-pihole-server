@@ -16,18 +16,32 @@ package install
 
 addAccount PIHOLE
 
+# Add $PIHOLE_USER and sudo enable.  Clone SSH publicc keys from root
+# This account will be mapped to the same UID:GID on the host.
+
+echo -e "$PIHOLE_USER ALL=(ALL:ALL) NOPASSWD: ALL\n" >> /etc/sudoers
+
+# Inherit SSH authorised keys from the Root account
+
+USER_SSH="/home/$PIHOLE_USER/.ssh"
+mkdir -m 700 $USER_SSH
+cp -p /root/.ssh/authorized_keys $USER_SSH
+chown $PIHOLE_USER:$PIHOLE_USER -R $USER_SSH
+
 # Configure and start up Unbound
 
 mv /etc/unbound/unbound.conf.d/{,05-}root-auto-trust-anchor-file.conf
-cp -r /usr/local/conf/unbound /etc
+cp /usr/local/conf/unbound.conf.d/*.conf /etc/unbound/unbound.conf.d
+cp /usr/local/conf/unbound.conf.d/root.{hints,key} /etc/unbound/
 service unbound restart
-service sshd stop
-rm -R /etc/ssh
-ln -s /usr/local/data/{pihole,.pihole,ssh} /etc
 
-sleep 2
-SUBNET=$(ip a| perl -ne '/inet (\d+\.\d+\.\d+).*eth0/ && print $1;')
-echo "
+function createSetupVars {
+    IP=''
+    while [[ -z $IP ]]
+        do sleep 1; IP=$(ip a s dev eth0 | awk '/inet /{print $2}'); done
+    SUBNET=$( sed 's/\.[0-9]*\/[0-9]*//' <<< "$IP" )
+    
+    echo "
     PIHOLE_INTERFACE=eth0
     DNSMASQ_LISTENING=single
     IPV4_ADDRESS=
@@ -39,21 +53,28 @@ echo "
     TEMPERATUREUNIT=C
     DNS_FQDN_REQUIRED=true
     DNS_BOGUS_PRIV=true
-    MAXDBDAYS=31
     PIHOLE_DNS_1=127.0.0.1#5053
     PIHOLE_DNS_2=127.0.0.1#5053
     REV_SERVER=true
-    REV_SERVER_CIDR=$SUBNET.0/24
-    REV_SERVER_TARGET=$SUBNET.1
+    REV_SERVER_CIDR=${SUBNET}.0/24
+    REV_SERVER_TARGET=${SUBNET}.1
     REV_SERVER_DOMAIN=home
     WEBUIBOXEDLAYOUT=traditional
     INSTALL_WEB_SERVER=true
     INSTALL_WEB_INTERFACE=true
     LIGHTTPD_ENABLED=true
     CACHE_SIZE=10000
-    WEBPASSWORD='$WEBPASSWD'" \
-| sed 's/^ *//' > /etc/pihole/setupVars.conf
-cp /etc/pihole/setupVars.conf /home/pihole
+    WEBPASSWORD='${PIHOLE_PWD}'" | sed 's/^ *//'
+}
+
+# Now install Pihole.  At this stage the setupVars need to be
+# sufficient to allow the install script to do a full S/W install.
+
+for i in 1 2; do PIHOLE_PWD=$(echo -n $PIHOLE_PWD| sha256sum | cut -b 1-64); done
+
+mkdir -p /etc/pihole
+
+createSetupVars > /etc/pihole/setupVars.conf
 
 # Download the pihole installation script and do unattended install
 
@@ -63,11 +84,12 @@ wget -qO - https://install.pi-hole.net | bash -ls - --unattended
 
 bash -lc "pihole disable"
 pkill pihole-FTL
+rm -R /etc/pihole
 
 # Configure and start up pihole.  Note that /etc/pihole is preserved
 # except setupVars.conf is reinitialised
 
-cp {/home,/etc}/pihole/setupVars.conf
-bash -lc "pihole enable restartdns"
+ln -s /usr/local/data /etc/pihole
+createSetupVars > /etc/pihole/setupVars.conf
 
-enableService
+bash -lc "pihole enable restartdns"

@@ -1,20 +1,10 @@
 APP="OpenVPN Server"
 OPT_MAP=0
 function HOOK_customMapping {
-     echo Map hook called
-     sudo sed -i  '$a lxc.cgroup.devices.allow: c 10:200 rwm
-                   $a lxc.mount.entry: /dev/net dev/net none bind,create=dir' \
-              /etc/pve/lxc/$CTID.conf
+     sudo sed -i \
+         '$a lxc.cgroup.devices.allow: c 10:200 rwm
+          $a lxc.mount.entry: /dev/net dev/net none bind,create=dir' \
+         /etc/pve/lxc/$CTID.conf
 }
-
-OPT_OSTYPE="debian"
-OPT_DISK=2
-OPT_RAM=256
-OPT_OSVERSION="12"
-
-# vpn/.env  includes the following private parameters
-# OPT_CTID=
-# OPT_MACADDR=
-# VPN_UID=
-# VPN_USER=
-# VPN_PASSWORD=
+# vpn/.env includes the following private parameters
+# OPT_CTID OPT_MACADDR VPN_UID VPN_USER VPN_PASSWORD VPN_EXTHOST

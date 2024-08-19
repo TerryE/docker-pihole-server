@@ -1,9 +1,11 @@
 APP="vsFTPd Server"
 
+HOOK_customMounts() {
+  local -n mnt="$1"
+  mpd="$(readlink -f $ROOT_PATH/ftp),mp=/usr/local/ftp,backup=0"
+  mps+=( "--mp${#mps[@]} $mpd")
+}
+
 # vsftp/.env  includes the following private parameters
-# OPT_CTID=
-# OPT_MACADDR=
-# USER=
-# FTP_USER=
-# FTP_PASSWORD=
-# FTP_UID=
+# OPT_CTID OPT_MACADDR
+# USER FTP_USER FTP_PASSWORD FTP_UID

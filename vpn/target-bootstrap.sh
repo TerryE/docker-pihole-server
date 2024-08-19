@@ -1,8 +1,6 @@
 #! /bin/bash
 
-# In-target initial provisioning of the Alpine or Debian OpenVPN LXC
-
-cd /usr/local
+# In-target initial provisioning of the Alpine OpenVPN LXC
 
 ln -s /usr/local/data/$VPN_USER /home
 VPN_HOME="/home/$VPN_USER"
@@ -10,40 +8,45 @@ VPN_HOME="/home/$VPN_USER"
 # Install some debug stuff and add VPN User account which is needed for the PiVPN install
 # but with SSH keyed login only
 
-if [[ -f /etc/debian_version ]] ;then   # Debian build
+setup-apkrepos -c1
+package common
+package add curl
+package install
 
-    sed -i 's/deb.debian.org/ftp.uk.debian.org/g' /etc/apt/sources.list
-    apt-get update
-    sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
-    locale-gen
-    apt-get install -y curl nmap sudo
-    adduser --gecos '' --disabled-password  $VPN_USER
+addAccount VPN
 
-else                                    # Apline build
-
-    apk add --no-cache logrotate curl nmap procps sudo tar tree util-linux iputils xz
-    VPN_RNDPASS=$(head -c 64  </dev/urandom | tr -cd 'A-Za-z0-9#%&()*+,-.:<=>?@^_~')
-    echo -e "${VPN_RNDPASSD}\n${VPN_RNDPASSD}" | adduser -g '' -s /bin/bash  $VPN_USER
-
-fi
-
-echo -e "$VPN_USER ALL=(ALL:ALL) NOPASSWD: ALL\n" >> /etc/sudoers
-
-mkdir -m 700 $VPN_HOME/.ssh
-cp -p /root/.ssh/authorized_keys $VPN_HOME/.ssh
-chown $VPN_USER:$VPN_USER -R $VPN_HOME/.ssh
-
-# Configure OpenVPN and ensure it is started after a reboot
-
-wget -qO - https://install.pivpn.io | bash -ls - --unattended /usr/local/conf/pivpn-init.conf
-
+# Configure OpenVPN
+  
 cd $VPN_HOME
-last_backup=$(ls -l pivpnbackup | tail -1 | sed  's/.*:.. //') || exit
+sed s/^..// << EOD  > /tmp/$$.conf
+  dhcpReserv=0
+  install_home=/home/$VPN_USER
+  install_user=$VPN_USER
+  IPv4dev=eth0
+  pivpnDNS1=$(sed -n '2s/nameserver.//;2p' /etc/resolv.conf)
+  pivpnDNS2=
+  pivpnenableipv6=0
+  pivpnENCRYPT=256
+  pivpnHOST=$VPN_EXT_HOST
+  pivpnNET=10.183.31.0
+  pivpnPORT=1194
+  pivpnPROTO=udp
+  subnetClass=24
+  TWO_POINT_FOUR=1
+  UNATTUPG=1
+  USE_PREDEFINED_DH_PARAM=1
+  VPN=openvpn
+EOD
 
+wget -qO - https://install.pivpn.io | bash -ls - --unattended /tmp/$$.conf
+
+export PATH=/usr/sbin:$PATH
 service openvpn stop
-#tar -C / -xzpf pivpnbackup/$last_backup
 
 # Remove Plaform setting as these are recreated if omitted
 sed -i '/PLAT=/d; /OSCN=/d' /etc/pivpn/openvpn/setupVars.conf
 
-reboot
+tar -C / -xzf $(ls -1 pivpnbackup/*.tgz | tail -1)
+
+enableService openvpn
+echo Y |/usr/local/bin/pivpn -d
