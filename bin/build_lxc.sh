@@ -1,4 +1,4 @@
-#! /bin/env -iS HOME=${HOME} PWD=${PWD} PATH="/usr/bin:/bin" TERM="minimal" bash --noprofile --norc
+  #! /bin/env -iS HOME=${HOME} PWD=${PWD} PATH="/usr/bin:/bin" TERM="minimal" bash --noprofile --norc
 #
 # This build script is written to be run at normal privilege from a sudo-enabled account.  Hence
 # privileged functions are "sudoed", but this means than any environment must be explicitly passed
@@ -44,7 +44,7 @@ function setLXCoptionDefaults {
     # here, but note the convention that none include an underscore.  These parameters
     # can be subsequently overriden by .env, configSettings or a command line option.
     
-    CORES=1 DISABLEIP6=1 MAP=0 ONBOOT=1 PRIVTYPE=1 RAM=128 REBUILD=0
+    CORES=1 DISABLEIP6=1 MAP=0 ONBOOT=1 PRIVTYPE=1 RAM=128 REBUILD=0 REBOOT=1
     APP="" CHECKTEMPLATE="" CTID="" GATEWAY="" HOST="" MACADDR="" MTU=""
     VERBOSE="no"
     DISK="0.5" DISKSTORE="local-lvm" TEMPLATESTORE="local"
@@ -71,19 +71,19 @@ function setEnvOptOverrides {
     done
 }
 
-function setCommandLinevOptOverrides {
+function setCommandLineOptOverrides {
     # Command line options (e.g. --ram 256) can override the corresponding setup option
     while (( $# > 0 )) ; do
-        local -u name=${1:2}
-        local -n var=$name
-        local    val="1"
-        [[ ${1:0:2} = "--"  && -v var  ]] || msg_error "Unknown option $1"
+        local -u name="${1:2}"
+        local -n var="$name"
+        local    arg="1"
+        [[ "${1:0:2}" = "--"  && -v var  ]] || msg_error "Unknown option $1"
         shift
         # if the value is omitted then it defaults to 1
-        [[ $# -gt 0 && ${1:0:2} != "--" ]] && ( val=$1; shift )
-        [[ $var = $val ]] && continue
-        var=$val
-        msg_info "$name changed from $var to $val"
+        [[ $# -gt 0 ]] && [[ "${1:0:2}" != "--" ]] && { arg="$1"; shift; }
+        [[ $var = $arg ]] && continue
+        local oldvar=$var; var=$arg
+        msg_info "$name changed from $oldvar to $arg"
     done
 }
 
@@ -230,13 +230,14 @@ function bootstrap_LXC {
         for _f in $(declare -F |cut -d \  -f 3| grep ^tgt_); do
             declare -f $_f|sed '1s/^tgt_//'; echo  ""
         done
+        echo "[[ \$1 = \"set\" ]] && return"
         # The Bootstrap script
         cat $ROOT_PATH/target-bootstrap.sh
     ) > /tmp/$$.sh
     sudo pct exec $ctid hostname
-    sudo pct push $ctid /tmp/$$.sh /tmp/$$.sh
+    sudo pct push $ctid /tmp/$$.sh /tmp/$$.sh; rm /tmp/$$.sh
     sudo pct exec $ctid -- /bin/bash /tmp/$$.sh
-    sudo pct reboot $ctid
+    [[ $REBOOT = 1 ]] && sudo pct reboot $ctid
 
     local IP=''
     while [[ -z $IP ]]; do
@@ -248,7 +249,7 @@ function bootstrap_LXC {
 }
 
 function newVars {
-    # Track any variables added by this scriot as these will be shared with build/-target,sh
+    # Track any variables added by this scriot as these will be shared with build-target.sh
     local list=$(declare -p|cut -d\  -f 3|cut -d= -f 1)
     for _v in $list; do
         [[ -v var_list["$_v"] ]] && continue
@@ -264,7 +265,7 @@ function tgt_package {
     local action=$1 ; shift
     case $action in
       common)
-        package_list=(iputils logrotate nmap procps openssh-server rsync sudo tar tree util-linux xz)
+        package_list=(iputils logrotate nmap procps openssh-server rsync sudo tar tree util-linux vim xz)
         [[ -f /etc/debian_version ]] && package_list=(nmap rsync tree sudo xz-utils) ;;
       php)
         for _p in $@; do package_list+=("php81-$_p"); done ;;
@@ -277,6 +278,7 @@ function tgt_package {
             service ssdh stop
         else  # alpine
             apk add --no-cache  ${package_list[@]}
+            ln -sfT /usr/bin/{vim,vi}
         fi ;;
     esac
 }
@@ -322,10 +324,9 @@ function tgt_enableService {
    echo "$APP Build for $HOST (ctid:$CTID), IP=$IP" > /etc/motd
     # Enable the required services
     persist ssh /etc/ssh
-    
-    if test $isdebian; then return; fi
+    test $isdebian && return
     for s in sshd $@; do
-        rc-update add $s default
+         rc-update add $s default
         service $s start
     done
 }
@@ -344,7 +345,7 @@ function _main_ {
     setRoot "$1";  shift
     setLXCoptionDefaults
     setEnvOptOverrides
-    setCommandLinevOptOverrides $*
+    setCommandLineOptOverrides $*
     [[ $VERBOSE  =~ (1|yes|YES) ]] && set -x
     newVars print
     contextVars="$(newVars print)"

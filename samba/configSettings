@@ -1,0 +1,11 @@
+APP="Samba Server"
+
+HOOK_customMounts() {
+  local -n mnt="$1"
+  mpd="$(readlink -f $SAMBA_ROOT),mp=/filestore,backup=0"
+  mps+=( "--mp${#mps[@]} $mpd")
+}
+
+# vsftp/.env  includes the following private parameters
+# OPT_CTID OPT_MACADDR
+# USER SAMBA_USER SAMBA_PASSWORD SAMBA_UID
