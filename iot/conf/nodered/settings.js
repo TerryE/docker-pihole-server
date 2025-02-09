@@ -1,12 +1,5 @@
 module.exports = {
-/*
- * The following configuration keys were controlled by the Node_REDadd-on.
- *
- * - adminAuth (known as users in the add-on configuration)
- * - https (ssl settings in the add-on configuration)
- * - logging.console.level (log_level in the add-on configuration)
- * - requireHttps (require_ssl setting in the add-on configuration)
- */
+
   credentialSecret:  'IN.TE.SPERANT.DOMINE',
   flowFile:          'flows.json',
   flowFilePretty:    true,
@@ -15,51 +8,56 @@ module.exports = {
   requireHttps:      false,
   //httpNodeAuth:    {user:"",pass:""},
   //httpStaticAuth:  {user:"",pass:""},
-/* 
- * If you like to change those settings, some are available via the add-on
- * settings/option in the Supervisor panel in Home Assistant.
- */
+
   mqttReconnectTime:   15000,
   serialReconnectTime: 15000,
   debugMaxLength:      1000,
 
-  functionGlobalContext: {
-    osModule:require('os'),
-    fsModule:require('fs'),
+  adminAuth: {
+      type: "credentials",
+      users: [{
+          username: "terry",
+          password: "$2b$08$0oCtrNZPbQ46PjU2KTRbr.3jbOiQYGVgPMmKC5tmh2sCdbrBZlBey",
+          permissions: "*"
+      }]
   },
-   /** To password protect the Node-RED editor and admin API, the following            
-     * property can be used. See https://nodered.org/docs/security.html for details.    
-     */                                                                                 
-    //adminAuth: {                                                                      
-    //    type: "credentials",                                                          
-    //    users: [{                                                                     
-    //        username: "admin",                                                        
-    //        password: "$2a$08$zZWtXTja0fB1pzD4sHCMyOCMYz2Z6dNbM6tl8sJogENOMcxWV9DN.", 
-    //        permissions: "*"                                                          
-    //    }]                                                                            
-    //},
-	//
-/*https: {
-     key:  require("fs").readFileSync('privkey.pem'),
-     cert: require("fs").readFileSync('cert.pem')
-  },*/
 
-  paletteCategories: [
-    "home_assistant",
-    "subflows",
-    "common",
-    "function",
-    "network",
-    "sequence",
-    "parser",
-    "storage"
-  ],
+  //https: { () => { return {
+  //       key:  require("fs").readFileSync('privkey.pem'),
+  //       cert: require("fs").readFileSync('cert.pem'),
+  //   }; },
+  //httpsRefreshInterval : 12,  // Hours
+  //requireHttps: true,
 
-  logging: {
-    console: { metrics: false, audit: false },
-  },
+  // Diagnostics options if enabled, diagnostics data will  be available at
+  // http://localhost:1880/diagnostics.  If ui is true`, then the action
+  // `show-system-info` is e available to logged in users of node-red editor
+  diagnostics: { enabled: true, ui: true },
+
+  runtimeState: { enabled: false, ui: false },
+  
+  logging: { console: { level: "info", metrics: false, audit: false }, },
+
+  functionExternalModules: true,
+  functionTimeout: 0,
+  functionGlobalContext: {},
+
+  uiPort: 80,
+  ui: { path: "ui" },
+  
+  apiMaxLength: '5mb',
 
   editorTheme: {
     projects: { enabled: false },
-  }
+  },
+  codeEditor: {
+     lib: 'monaco', 
+     options: {
+        formatOnPaste: false,
+        useTabStops: true,
+        colorDecorators: true,
+        fontSize: 14,
+        "bracketPairColorization.enabled": true,
+      },
+  },  
 };

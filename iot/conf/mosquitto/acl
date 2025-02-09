@@ -2,3 +2,4 @@ user homeassistant
 user addons
 user sonoff
 user heating
+user chrelays

@@ -4,6 +4,8 @@ command_args="--max_old_space_size=192 /usr/local/bin/node-red -p 80 -u /usr/loc
 command_user="nodered:nodered"
 command_background=true
 pidfile="/run/${RC_SVCNAME}.pid"
+output_log=/var/log/nodered/output.log
+error_log=/var/log/nodered/error.log
 name="nodered"
 description="Node_RED Server"
 depend() {
